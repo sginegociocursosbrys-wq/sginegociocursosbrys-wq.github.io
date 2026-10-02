@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIRBE · Bienes muebles escolares</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪑</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--tinta:#1d2a33;--pizarra:#1e5b4f;--tiza:#f4f6f3;--papel:#fff;--etiqueta:#f2c94c;--linea:#d5dbd6;--alerta:#a8322d;--suave:#5a6a63}
+@media(prefers-color-scheme:dark){:root:not([data-claro]){--tinta:#e8eee9;--pizarra:#5fb3a0;--tiza:#141c19;--papel:#1c2622;--linea:#33423c;--alerta:#e58a84;--suave:#9db0a7}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 'Atkinson Hyperlegible',system-ui,sans-serif;background:var(--tiza);color:var(--tinta)}
+h1,h2,h3{margin:0;line-height:1.2}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pizarra);outline-offset:2px}
+.btn{background:var(--pizarra);color:#fff;border:0;border-radius:6px;padding:.55rem 1rem;cursor:pointer;font-weight:700}
+@media(prefers-color-scheme:dark){:root:not([data-claro]) .btn{color:#10201b}}
+.btn.sec{background:transparent;color:var(--tinta);border:1px solid var(--linea)}
+.btn.peligro{background:var(--alerta)}
+.btn:disabled{opacity:.5}
+input,select,textarea{width:100%;padding:.5rem .6rem;border:1px solid var(--linea);border-radius:6px;background:var(--papel)}
+label{display:block;font-weight:700;margin:.8rem 0 .25rem}
+header{background:var(--pizarra);color:#fff;padding:.7rem 1.2rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+@media(prefers-color-scheme:dark){:root:not([data-claro]) header{color:#10201b}}
+header h1{font-size:1.15rem;margin-right:auto}
+header nav{display:flex;gap:.4rem}
+header button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:6px;padding:.35rem .8rem;cursor:pointer}
+header button[aria-current=page]{background:rgba(255,255,255,.22);font-weight:700}
+main{max-width:1050px;margin:0 auto;padding:1.2rem}
+.panel{background:var(--papel);border:1px solid var(--linea);border-radius:8px;padding:1rem;margin-bottom:1rem}
+.etiqueta{display:inline-block;background:var(--etiqueta);color:#222;font-weight:700;font-size:.85rem;padding:.1rem .55rem;border-radius:3px;border-left:6px solid #222;white-space:nowrap}
+.estado{font-weight:700;padding:.1rem .5rem;border-radius:4px;border:1px solid currentColor;font-size:.85rem}
+.estado.bueno{color:var(--pizarra)}.estado.regular{color:#8a6a00}.estado.malo,.estado.baja{color:var(--alerta)}.estado.en_reparacion{color:#3b5ea8}
+.filtros{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.6rem;align-items:end}
+.filtros label{margin:0 0 .2rem}
+.tabla{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:.55rem .6rem;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-size:.9rem}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--tiza)}
+.barras{display:grid;gap:.4rem}.fila{display:grid;grid-template-columns:11rem 1fr 2.5rem;gap:.6rem;align-items:center}
+.fila i{display:block;height:14px;background:var(--pizarra);border-radius:3px}
+.cifras{display:flex;gap:2rem;flex-wrap:wrap}.cifras b{font-size:1.8rem;display:block}
+dialog{border:1px solid var(--linea);border-radius:10px;padding:1.2rem;width:min(560px,94vw);background:var(--papel);color:var(--tinta)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.acciones{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2rem;flex-wrap:wrap}
+.error{color:var(--alerta);font-weight:700;min-height:1.4rem}
+ol.hist{padding-left:1.1rem}ol.hist li{margin:.4rem 0}
+.entrada{max-width:380px;margin:12vh auto}
+.vacio{color:var(--suave);padding:1.5rem 0;text-align:center}
+@media(max-width:700px){.filtros,.dos{grid-template-columns:1fr}.fila{grid-template-columns:7rem 1fr 2rem}}
+@media(prefers-reduced-motion:no-preference){dialog[open]{animation:ent .15s ease-out}@keyframes ent{from{transform:translateY(8px);opacity:0}}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dlg"></dialog>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ESTADOS = { bueno: 'Bueno', regular: 'Regular', malo: 'Malo', en_reparacion: 'En reparación', baja: 'Baja' };
+const fecha = (f) => f ? new Date(f).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const S = { token: localStorage.getItem('t'), user: JSON.parse(localStorage.getItem('u') || 'null'), vista: 'resumen', areas: [], cats: [], f: { q: '', area: '', estado: '' }, page: 1 };
+const puedeEscribir = () => ['admin', 'encargado'].includes(S.user?.rol);
+
+async function api(ruta, { method = 'GET', body } = {}) {
+  const r = await fetch('/api/v1' + ruta, {
+    method, body: body && JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json', ...(S.token ? { Authorization: 'Bearer ' + S.token } : {}) }
+  });
+  if (r.status === 401 && S.token) { salir(); throw new Error('Tu sesión terminó. Inicia sesión de nuevo.'); }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Ocurrió un error');
+  return d;
+}
+function salir() { localStorage.clear(); S.token = null; S.user = null; pintar(); }
+
+function login() {
+  $('#app').innerHTML = `<form class="panel entrada" id="fl">
+    <h1>Bienes muebles escolares</h1><p style="color:var(--suave)">Inicia sesión para ver el inventario.</p>
+    <label for="em">Correo</label><input id="em" type="email" autocomplete="username" required>
+    <label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" required>
+    <p class="error" id="er" role="alert"></p><button class="btn" style="width:100%">Iniciar sesión</button></form>`;
+  $('#fl').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const d = await api('/auth/login', { method: 'POST', body: { email: $('#em').value, password: $('#pw').value } });
+      S.token = d.token; S.user = d.user; localStorage.setItem('t', d.token); localStorage.setItem('u', JSON.stringify(d.user));
+      pintar();
+    } catch (x) { $('#er').textContent = x.message; }
+  };
+}
+
+async function pintar() {
+  if (!S.token) return login();
+  if (!S.areas.length) [S.areas, S.cats] = await Promise.all([api('/areas'), api('/categorias')]);
+  $('#app').innerHTML = `<header><h1>SIRBE</h1><nav aria-label="Secciones">
+    <button data-v="resumen">Resumen</button><button data-v="inventario">Inventario</button></nav>
+    <span>${esc(S.user.nombre)} (${esc(S.user.rol)})</span><button id="so">Cerrar sesión</button></header><main id="m"></main>`;
+  document.querySelectorAll('[data-v]').forEach((b) => {
+    if (b.dataset.v === S.vista) b.setAttribute('aria-current', 'page');
+    b.onclick = () => { S.vista = b.dataset.v; pintar(); };
+  });
+  $('#so').onclick = salir;
+  S.vista === 'resumen' ? resumen() : inventario();
+}
+
+async function resumen() {
+  const d = await api('/reportes/resumen'), max = Math.max(1, ...d.por_area.map((a) => a.n));
+  $('#m').innerHTML = `<section class="panel cifras"><div><b>${d.activos.n}</b>bienes activos</div>
+    <div><b>${Number(d.activos.valor).toLocaleString('es', { minimumFractionDigits: 2 })}</b>valor registrado</div>
+    ${d.por_estado.map((e) => `<div><b>${e.n}</b>${ESTADOS[e.estado]}</div>`).join('')}</section>
+    <section class="panel"><h2>Bienes por área</h2><div class="barras" style="margin-top:.8rem">
+    ${d.por_area.map((a) => `<div class="fila"><span>${esc(a.nombre)}</span><i style="width:${(a.n / max) * 100}%"></i><b>${a.n}</b></div>`).join('')}</div></section>`;
+}
+
+async function inventario() {
+  $('#m').innerHTML = `<section class="panel"><form class="filtros" id="ff">
+    <div><label for="q">Buscar</label><input id="q" value="${esc(S.f.q)}" placeholder="Código, descripción o responsable"></div>
+    <div><label for="fa">Área</label><select id="fa"><option value="">Todas</option>${S.areas.map((a) => `<option value="${a.id}" ${S.f.area == a.id ? 'selected' : ''}>${esc(a.nombre)}</option>`).join('')}</select></div>
+    <div><label for="fe">Estado</label><select id="fe"><option value="">Todos</option>${Object.entries(ESTADOS).map(([k, v]) => `<option value="${k}" ${S.f.estado === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    <button class="btn">Filtrar</button></form></section>
+    <section class="panel"><div style="display:flex;gap:.6rem;justify-content:space-between;flex-wrap:wrap;margin-bottom:.6rem">
+    <h2>Inventario</h2><span>${puedeEscribir() ? '<button class="btn" id="nuevo">Registrar bien</button> ' : ''}<button class="btn sec" id="csv">Descargar CSV</button></span></div>
+    <div class="tabla" id="tb" aria-live="polite"></div><div class="acciones" id="pg"></div></section>`;
+  $('#ff').onsubmit = (e) => { e.preventDefault(); S.f = { q: $('#q').value, area: $('#fa').value, estado: $('#fe').value }; S.page = 1; inventario(); };
+  if ($('#nuevo')) $('#nuevo').onclick = () => formBien();
+  $('#csv').onclick = async () => {
+    const r = await fetch('/api/v1/reportes/inventario.csv', { headers: { Authorization: 'Bearer ' + S.token } });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'inventario.csv'; a.click();
+  };
+  const p = new URLSearchParams({ ...S.f, page: S.page }), d = await api('/bienes?' + p);
+  $('#tb').innerHTML = d.items.length ? `<table><thead><tr><th>Código</th><th>Descripción</th><th>Área</th><th>Responsable</th><th>Estado</th></tr></thead><tbody>
+    ${d.items.map((b) => `<tr tabindex="0" data-id="${b.id}"><td><span class="etiqueta">${esc(b.codigo)}</span></td><td>${esc(b.descripcion)}<br><small>${esc(b.categoria)}</small></td>
+    <td>${esc(b.area)}</td><td>${esc(b.responsable)}</td><td><span class="estado ${b.estado}">${ESTADOS[b.estado]}</span></td></tr>`).join('')}</tbody></table>`
+    : '<p class="vacio">No hay bienes con esos filtros. Registra el primero o cambia la búsqueda.</p>';
+  document.querySelectorAll('tbody tr').forEach((tr) => {
+    tr.onclick = () => ficha(tr.dataset.id);
+    tr.onkeydown = (e) => e.key === 'Enter' && ficha(tr.dataset.id);
+  });
+  const pags = Math.ceil(d.total / 20);
+  $('#pg').innerHTML = pags > 1 ? `<button class="btn sec" ${S.page <= 1 ? 'disabled' : ''} id="ant">Anterior</button><span>Página ${S.page} de ${pags}</span><button class="btn sec" ${S.page >= pags ? 'disabled' : ''} id="sig">Siguiente</button>` : '';
+  if ($('#ant')) { $('#ant').onclick = () => { S.page--; inventario(); }; $('#sig').onclick = () => { S.page++; inventario(); }; }
+}
+
+const dlg = $('#dlg');
+const abrir = (html) => { dlg.innerHTML = html; if (!dlg.open) dlg.showModal(); };
+const opts = (lista, sel, vacio) => (vacio ? `<option value="">${vacio}</option>` : '') + lista.map((x) => `<option value="${x.id}" ${x.id == sel ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+
+function formBien(b) {
+  abrir(`<form id="fb"><h2>${b ? 'Editar ' + esc(b.codigo) : 'Registrar bien'}</h2>
+    <label for="d">Descripción</label><input id="d" required value="${esc(b?.descripcion)}">
+    <div class="dos"><div><label for="c">Categoría</label><select id="c">${opts(S.cats, b?.categoria_id, 'Sin categoría')}</select></div>
+    <div><label for="a">Área</label><select id="a" ${b ? 'disabled' : 'required'}>${opts(S.areas, b?.area_id)}</select></div>
+    <div><label for="r">Responsable</label><input id="r" value="${esc(b?.responsable)}"></div>
+    <div><label for="e">Estado</label><select id="e">${Object.entries(ESTADOS).filter(([k]) => k !== 'baja').map(([k, v]) => `<option value="${k}" ${b?.estado === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    <div><label for="v">Valor</label><input id="v" type="number" step="0.01" min="0" value="${b?.valor ?? ''}"></div>
+    <div><label for="f">Fecha de adquisición</label><input id="f" type="date" value="${b?.fecha_adquisicion?.slice(0, 10) ?? ''}"></div></div>
+    <p class="error" id="er" role="alert"></p><div class="acciones"><button type="button" class="btn sec" id="x">Cancelar</button><button class="btn">Guardar bien</button></div></form>`);
+  $('#x').onclick = () => dlg.close();
+  $('#fb').onsubmit = async (e) => {
+    e.preventDefault();
+    const body = { descripcion: $('#d').value, categoria_id: $('#c').value || null, area_id: $('#a').value, responsable: $('#r').value, estado: $('#e').value, valor: $('#v').value || null, fecha_adquisicion: $('#f').value || null };
+    try { await api(b ? '/bienes/' + b.id : '/bienes', { method: b ? 'PUT' : 'POST', body }); dlg.close(); inventario(); }
+    catch (x) { $('#er').textContent = x.message; }
+  };
+}
+
+async function ficha(id) {
+  const b = await api('/bienes/' + id);
+  abrir(`<h2><span class="etiqueta">${esc(b.codigo)}</span></h2><p><b>${esc(b.descripcion)}</b><br>${esc(b.categoria || 'Sin categoría')} · ${esc(b.area)} · ${esc(b.responsable || 'Sin responsable')}<br>
+    <span class="estado ${b.estado}">${ESTADOS[b.estado]}</span></p><h3>Historial</h3><ol class="hist">
+    ${b.movimientos.map((m) => `<li><b>${esc(m.tipo)}</b> · ${fecha(m.fecha)} · ${esc(m.usuario)}<br>${m.origen ? esc(m.origen) + ' → ' : ''}${esc(m.destino || '')} ${esc(m.observacion || '')}</li>`).join('')}</ol>
+    <div class="acciones"><button class="btn sec" id="x">Cerrar</button>
+    ${puedeEscribir() && b.estado !== 'baja' ? '<button class="btn sec" id="ed">Editar</button><button class="btn" id="tr">Trasladar</button>' : ''}
+    ${S.user.rol === 'admin' && b.estado !== 'baja' ? '<button class="btn peligro" id="bj">Dar de baja</button>' : ''}</div>`);
+  $('#x').onclick = () => dlg.close();
+  if ($('#ed')) $('#ed').onclick = () => formBien(b);
+  if ($('#tr')) $('#tr').onclick = () => accion(b, 'traslado');
+  if ($('#bj')) $('#bj').onclick = () => accion(b, 'baja');
+}
+
+function accion(b, tipo) {
+  const t = tipo === 'traslado';
+  abrir(`<form id="fa2"><h2>${t ? 'Trasladar' : 'Dar de baja'} ${esc(b.codigo)}</h2>
+    ${t ? `<label for="ad">Área de destino</label><select id="ad" required>${opts(S.areas.filter((a) => a.id !== b.area_id), '', 'Elige un área')}</select>
+    <label for="rr">Nuevo responsable (opcional)</label><input id="rr">` : ''}
+    <label for="ob">${t ? 'Observación (opcional)' : 'Motivo de la baja'}</label><textarea id="ob" rows="3" ${t ? '' : 'required'}></textarea>
+    <p class="error" id="er" role="alert"></p><div class="acciones"><button type="button" class="btn sec" id="x">Cancelar</button>
+    <button class="btn ${t ? '' : 'peligro'}">${t ? 'Trasladar bien' : 'Confirmar baja'}</button></div></form>`);
+  $('#x').onclick = () => dlg.close();
+  $('#fa2').onsubmit = async (e) => {
+    e.preventDefault();
+    const body = t ? { area_destino: $('#ad').value, responsable: $('#rr').value, observacion: $('#ob').value } : { observacion: $('#ob').value };
+    try { await api(`/bienes/${b.id}/${tipo}`, { method: 'POST', body }); dlg.close(); inventario(); }
+    catch (x) { $('#er').textContent = x.message; }
+  };
+}
+pintar();
+</script>
+</body>
+</html>
